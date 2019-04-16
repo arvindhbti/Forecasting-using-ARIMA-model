@@ -1,0 +1,108 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import statsmodels.api as sm  
+from statsmodels.tsa.stattools import acf, pacf
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.arima_model import ARIMA
+from datetime import timedelta
+from matplotlib import pyplot
+import warnings
+from pandas.plotting import autocorrelation_plot
+from sklearn.metrics import mean_squared_error
+warnings.filterwarnings('ignore')
+from statsmodels.tsa.stattools import adfuller
+from math import sqrt
+
+
+
+#Import data from csv
+data=pd.read_csv("C:/Users/Arvind/Desktop/failure prediction/final_data_5.csv",index_col=False)
+data['Aggregated_date'] = pd.to_datetime(data['Aggregated_date'])
+
+data_x=data[['Aggregated_date','Vibration_X_axis']]
+data_x.describe()
+plt.plot(data_x['Aggregated_date'],data_x['Vibration_X_axis'])
+
+data_y=data[['Aggregated_date','Vibration_Y_axis']]
+data_y.describe()
+plt.plot(data_y['Aggregated_date'],data_y['Vibration_Y_axis'])
+
+data_z=data[['Aggregated_date','Vibration_Z_axis']]
+data_z.describe()
+plt.plot(data_x['Aggregated_date'],data_x['Vibration_X_axis'])
+
+data_neg_x=data[['Aggregated_date','Vibration_X_axis_neg']]
+data_neg_x.describe()
+plt.plot(data_x['Aggregated_date'],data_x['Vibration_X_axis'])
+data_neg_y=data[['Aggregated_date','Vibration_Y_axis_neg']]
+data_neg_y.describe()
+plt.plot(data_x['Aggregated_date'],data_x['Vibration_X_axis'])
+data_neg_z=data[['Aggregated_date','Vibration_Z_axis_neg']]
+data_neg_z.describe()
+plt.plot(data_x['Aggregated_date'],data_x['Vibration_X_axis'])
+
+base_datasetMax=data
+base_datasetMax.drop(['Aggregated_date'], axis=1)
+corr = base_datasetMax.corr()
+cov = base_datasetMax.cov()
+
+
+def test_stationarity(timeseries):
+    
+    #Determing rolling statistics
+    rolmean = timeseries.rolling(window=12).mean()
+    rolstd = timeseries.rolling( window=12).std()
+
+    #Plot rolling statistics:
+    orig = plt.plot(timeseries, color='blue',label='Original')
+    mean = plt.plot(rolmean, color='red', label='Rolling Mean')
+    std = plt.plot(rolstd, color='black', label = 'Rolling Std')
+    plt.legend(loc='best')
+    plt.title('Rolling Mean & Standard Deviation')
+    plt.show(block=False)
+    
+    #Perform Dickey-Fuller test:
+    print ('Results of Dickey-Fuller Test:')
+    dftest = adfuller(timeseries, autolag='AIC')
+    dfoutput = pd.Series(dftest[0:4], index=['Test Statistic','p-value','#Lags Used','Number of Observations Used'])
+    for key,value in dftest[4].items():
+        dfoutput['Critical Value (%s)'%key] = value
+    print (dfoutput)
+    
+
+
+#for Vx
+# first difference
+test_stationarity(data_x['Vibration_X_axis'])
+data_x['diff'] = data_x['Vibration_X_axis'] - data_x['Vibration_X_axis'].shift(2) 
+data_x['diff'] =data_x['diff'].fillna(data_x['diff'].mean())
+#test_stationarity(data_x['diff'].dropna(inplace=False))
+test_stationarity(data_x['diff'])
+
+#Vx
+#Plot ACF and PACF Graph
+fig = plt.figure(figsize=(12,8))
+ax1 = fig.add_subplot(211)
+fig = sm.graphics.tsa.plot_acf(data_x['diff'][1:], lags=40, ax=ax1)
+fig.savefig("C:/Users/Arvind/Desktop/failure prediction/acf_x.")
+ax2 = fig.add_subplot(212)
+fig = sm.graphics.tsa.plot_pacf(data_x['diff'][1:], lags=40, ax=ax2)
+fig.savefig("C:/Users/Arvind/Desktop/failure prediction/pacf_x.")
+
+
+#Vx
+#Predict using 1,0,1 model
+
+fig = plt.figure(figsize=(20,8))
+model = ARIMA(data_x['diff'], order=(2,0,1)) 
+ax = plt.gca()
+results = model.fit() 
+#results.save("C:/Users/Arvind/Desktop/failure prediction/arima_x")
+plt.plot(data_x['Aggregated_date'],data_x['diff']);
+plt.plot(data_x['Aggregated_date'],results.fittedvalues, color='red')
+ax.legend(['Actual', 'Forecast'])
+ax.set_xlabel('Timestamp(5 minutes)')
+ax.set_ylabel('Vibration_X_axis')
+
+len(data_x['diff'])
